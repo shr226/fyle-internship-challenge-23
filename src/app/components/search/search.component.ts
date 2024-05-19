@@ -1,5 +1,5 @@
 
-import { Component, OnInit } from '@angular/core';
+import { Component } from '@angular/core';
 import { ApiService } from '../../services/api.service';
 
 @Component({
@@ -7,59 +7,55 @@ import { ApiService } from '../../services/api.service';
   templateUrl: './search.component.html',
   styleUrls: ['./search.component.css']
 })
-export class SearchComponent implements OnInit {
+export class SearchComponent {
   username: string = '';
-  repositories: any[] = [];
+  user: any = null;
   similarUsers: any[] = [];
+  repositories: any[] = [];
   loading: boolean = false;
-  currentPage: number = 1;
   pageSize: number = 10;
-  totalPages: number = 1;
   pageSizes: number[] = [10, 20, 30, 40, 50, 100];
+  currentPage: number = 1;
+  totalPages: number = 1;
 
   constructor(private apiService: ApiService) {}
 
-  ngOnInit(): void {}
-
-  searchUser(): void {
+  searchUser() {
     this.loading = true;
-    this.apiService.searchUsers(this.username).subscribe((data: any) => {
-      if (data.items.length === 1) {
-        this.username = data.items[0].login;
-        this.fetchRepositories();
-      } else {
-        this.similarUsers = data.items;
+    this.apiService.getUser(this.username).subscribe(user => {
+      this.user = user;
+      this.apiService.getRepositories(this.username, this.currentPage, this.pageSize).subscribe(repos => {
+        this.repositories = repos.items;
+        this.totalPages = Math.ceil(repos.total_count / this.pageSize);
         this.loading = false;
-      }
+      });
+    }, error => {
+      this.apiService.searchUsers(this.username).subscribe(response => {
+        this.similarUsers = response.items;
+        this.loading = false;
+      }, err => {
+        console.error(err);
+        this.loading = false;
+      });
     });
   }
 
-  fetchRepositories(): void {
-    this.apiService.getRepositories(this.username, this.currentPage, this.pageSize).subscribe((data: any) => {
-      this.repositories = data.items;
-      this.totalPages = Math.ceil(data.total_count / this.pageSize);
-      this.loading = false;
-    });
+  changePageSize(event: any) {
+    this.pageSize = event.target.value;
+    this.searchUser();
   }
 
-  changePageSize(event: Event): void {
-    const target = event.target as HTMLSelectElement;
-    this.pageSize = Number(target.value);
-    this.currentPage = 1;
-    this.fetchRepositories();
-  }
-
-  nextPage(): void {
-    if (this.currentPage < this.totalPages) {
-      this.currentPage++;
-      this.fetchRepositories();
+  prevPage() {
+    if (this.currentPage > 1) {
+      this.currentPage--;
+      this.searchUser();
     }
   }
 
-  prevPage(): void {
-    if (this.currentPage > 1) {
-      this.currentPage--;
-      this.fetchRepositories();
+  nextPage() {
+    if (this.currentPage < this.totalPages) {
+      this.currentPage++;
+      this.searchUser();
     }
   }
 }
